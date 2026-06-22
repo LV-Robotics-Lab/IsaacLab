@@ -68,12 +68,21 @@ def spawn_preview_surface(prim_path: str, cfg: visual_materials_cfg.PreviewSurfa
         if material_prim:
             from omni.usd.commands import CreateShaderPrimFromSdrCommand
 
-            shader_prim = CreateShaderPrimFromSdrCommand(
-                parent_path=prim_path,
-                identifier="UsdPreviewSurface",
-                stage_or_context=stage,
-                prim_name="Shader",
-            ).do()
+            try:
+                shader_prim = CreateShaderPrimFromSdrCommand(
+                    parent_path=prim_path,
+                    identifier="UsdPreviewSurface",
+                    stage_or_context=stage,
+                    prim_name="Shader",
+                ).do()
+            except TypeError as exc:
+                if "prim_name" not in str(exc):
+                    raise
+                shader_prim = CreateShaderPrimFromSdrCommand(
+                    parent_path=prim_path,
+                    identifier="UsdPreviewSurface",
+                    stage_or_context=stage,
+                ).do()
             # bind the shader graph to the material
             if shader_prim:
                 surface_out = shader_prim.GetOutput("surface")
@@ -89,7 +98,12 @@ def spawn_preview_surface(prim_path: str, cfg: visual_materials_cfg.PreviewSurfa
         raise ValueError(f"A prim already exists at path: '{prim_path}'.")
 
     # obtain prim
-    prim = stage.GetPrimAtPath(f"{prim_path}/Shader")
+    shader_usd_prim = shader_prim.GetPrim() if shader_prim and hasattr(shader_prim, "GetPrim") else shader_prim
+    prim = (
+        shader_usd_prim
+        if shader_usd_prim and shader_usd_prim.IsValid()
+        else stage.GetPrimAtPath(f"{prim_path}/Shader")
+    )
     # check prim is valid
     if not prim.IsValid():
         raise ValueError(f"Failed to create preview surface material at path: '{prim_path}'.")

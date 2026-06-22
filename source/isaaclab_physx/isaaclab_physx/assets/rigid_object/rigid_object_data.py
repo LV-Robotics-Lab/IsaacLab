@@ -26,6 +26,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _view_or_construct_vector_array(array: wp.array, dtype: type, device: str) -> wp.array:
+    """View a PhysX Warp scalar array as a vector dtype with Isaac Sim 5 fallback."""
+
+    try:
+        return array.view(dtype)
+    except RuntimeError as exc:
+        if "Cannot cast dtypes of unequal byte size" not in str(exc):
+            raise
+        tensor = wp.to_torch(wp.clone(array, device=device)).to(torch.float32).contiguous()
+        return wp.array(tensor.detach().cpu().numpy(), dtype=dtype, device=device)
+
+
 class RigidObjectData(BaseRigidObjectData):
     """Data container for a rigid object.
 
@@ -185,7 +197,9 @@ class RigidObjectData(BaseRigidObjectData):
         """
         if self._root_link_pose_w.timestamp < self._sim_timestamp:
             # read data from simulation
-            self._root_link_pose_w.data = self._root_view.get_transforms().view(wp.transformf)
+            self._root_link_pose_w.data = _view_or_construct_vector_array(
+                self._root_view.get_transforms(), wp.transformf, self.device
+            )
             self._root_link_pose_w.timestamp = self._sim_timestamp
 
         return self._root_link_pose_w.data
@@ -252,7 +266,9 @@ class RigidObjectData(BaseRigidObjectData):
         relative to the world.
         """
         if self._root_com_vel_w.timestamp < self._sim_timestamp:
-            self._root_com_vel_w.data = self._root_view.get_velocities().view(wp.spatial_vectorf)
+            self._root_com_vel_w.data = _view_or_construct_vector_array(
+                self._root_view.get_velocities(), wp.spatial_vectorf, self.device
+            )
             self._root_com_vel_w.timestamp = self._sim_timestamp
 
         return self._root_com_vel_w.data
@@ -327,9 +343,9 @@ class RigidObjectData(BaseRigidObjectData):
         This quantity is the acceleration of the rigid bodies' center of mass frame relative to the world.
         """
         if self._body_com_acc_w.timestamp < self._sim_timestamp:
-            self._body_com_acc_w.data = (
-                self._root_view.get_accelerations().view(wp.spatial_vectorf).reshape((self._num_instances, 1))
-            )
+            self._body_com_acc_w.data = _view_or_construct_vector_array(
+                self._root_view.get_accelerations(), wp.spatial_vectorf, self.device
+            ).reshape((self._num_instances, 1))
             self._body_com_acc_w.timestamp = self._sim_timestamp
 
         return self._body_com_acc_w.data
@@ -345,7 +361,9 @@ class RigidObjectData(BaseRigidObjectData):
         if self._body_com_pose_b.timestamp < self._sim_timestamp:
             # read data from simulation
             self._body_com_pose_b.data.assign(
-                self._root_view.get_coms().view(wp.transformf).reshape((self._num_instances, 1))
+                _view_or_construct_vector_array(self._root_view.get_coms(), wp.transformf, self.device).reshape(
+                    (self._num_instances, 1)
+                )
             )
             self._body_com_pose_b.timestamp = self._sim_timestamp
 

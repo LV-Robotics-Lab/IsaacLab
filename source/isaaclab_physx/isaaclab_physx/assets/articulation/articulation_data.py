@@ -27,6 +27,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _view_or_construct_vector_array(array: wp.array, dtype: type, device: str) -> wp.array:
+    """View a PhysX Warp scalar array as a vector dtype with Isaac Sim 5 fallback."""
+
+    try:
+        return array.view(dtype)
+    except RuntimeError as exc:
+        if "Cannot cast dtypes of unequal byte size" not in str(exc):
+            raise
+        tensor = wp.to_torch(wp.clone(array, device=device)).to(torch.float32).contiguous()
+        return wp.array(tensor.detach().cpu().numpy(), dtype=dtype, device=device)
+
+
 class ArticulationData(BaseArticulationData):
     """Data container for an articulation.
 
@@ -537,7 +549,9 @@ class ArticulationData(BaseArticulationData):
         """
         if self._root_link_pose_w.timestamp < self._sim_timestamp:
             # set the buffer data and timestamp
-            self._root_link_pose_w.data = self._root_view.get_root_transforms().view(wp.transformf)
+            self._root_link_pose_w.data = _view_or_construct_vector_array(
+                self._root_view.get_root_transforms(), wp.transformf, self.device
+            )
             self._root_link_pose_w.timestamp = self._sim_timestamp
 
         return self._root_link_pose_w.data
@@ -603,7 +617,9 @@ class ArticulationData(BaseArticulationData):
         relative to the world.
         """
         if self._root_com_vel_w.timestamp < self._sim_timestamp:
-            self._root_com_vel_w.data = self._root_view.get_root_velocities().view(wp.spatial_vectorf)
+            self._root_com_vel_w.data = _view_or_construct_vector_array(
+                self._root_view.get_root_velocities(), wp.spatial_vectorf, self.device
+            )
             self._root_com_vel_w.timestamp = self._sim_timestamp
 
         return self._root_com_vel_w.data
@@ -644,7 +660,9 @@ class ArticulationData(BaseArticulationData):
             # perform forward kinematics (shouldn't cause overhead if it happened already)
             self._physics_sim_view.update_articulations_kinematic()
             # set the buffer data and timestamp
-            self._body_link_pose_w.data = self._root_view.get_link_transforms().view(wp.transformf)
+            self._body_link_pose_w.data = _view_or_construct_vector_array(
+                self._root_view.get_link_transforms(), wp.transformf, self.device
+            )
             self._body_link_pose_w.timestamp = self._sim_timestamp
 
         return self._body_link_pose_w.data
@@ -712,7 +730,9 @@ class ArticulationData(BaseArticulationData):
         relative to the world.
         """
         if self._body_com_vel_w.timestamp < self._sim_timestamp:
-            self._body_com_vel_w.data = self._root_view.get_link_velocities().view(wp.spatial_vectorf)
+            self._body_com_vel_w.data = _view_or_construct_vector_array(
+                self._root_view.get_link_velocities(), wp.spatial_vectorf, self.device
+            )
             self._body_com_vel_w.timestamp = self._sim_timestamp
 
         return self._body_com_vel_w.data
@@ -727,7 +747,9 @@ class ArticulationData(BaseArticulationData):
         """
         if self._body_com_acc_w.timestamp < self._sim_timestamp:
             # read data from simulation and set the buffer data and timestamp
-            self._body_com_acc_w.data = self._root_view.get_link_accelerations().view(wp.spatial_vectorf)
+            self._body_com_acc_w.data = _view_or_construct_vector_array(
+                self._root_view.get_link_accelerations(), wp.spatial_vectorf, self.device
+            )
             self._body_com_acc_w.timestamp = self._sim_timestamp
 
         return self._body_com_acc_w.data
@@ -743,7 +765,9 @@ class ArticulationData(BaseArticulationData):
         """
         if self._body_com_pose_b.timestamp < self._sim_timestamp:
             # set the buffer data and timestamp
-            self._body_com_pose_b.data.assign(self._root_view.get_coms().view(wp.transformf))
+            self._body_com_pose_b.data.assign(
+                _view_or_construct_vector_array(self._root_view.get_coms(), wp.transformf, self.device)
+            )
             self._body_com_pose_b.timestamp = self._sim_timestamp
 
         return self._body_com_pose_b.data
@@ -763,8 +787,8 @@ class ArticulationData(BaseArticulationData):
         """
 
         if self._body_incoming_joint_wrench_b.timestamp < self._sim_timestamp:
-            self._body_incoming_joint_wrench_b.data = self._root_view.get_link_incoming_joint_force().view(
-                wp.spatial_vectorf
+            self._body_incoming_joint_wrench_b.data = _view_or_construct_vector_array(
+                self._root_view.get_link_incoming_joint_force(), wp.spatial_vectorf, self.device
             )
             self._body_incoming_joint_wrench_b.timestamp = self._sim_timestamp
         return self._body_incoming_joint_wrench_b.data
@@ -1238,7 +1262,19 @@ class ArticulationData(BaseArticulationData):
             device=self.device,
         )
         self._joint_pos_limits = wp.zeros((self._num_instances, self._num_joints), dtype=wp.vec2f, device=self.device)
-        self._joint_pos_limits.assign(self._root_view.get_dof_limits().view(wp.vec2f))
+        dof_limits = self._root_view.get_dof_limits()
+        try:
+            dof_limits_vec = _view_or_construct_vector_array(dof_limits, wp.vec2f, self.device)
+        except RuntimeError as exc:
+            if "Cannot cast dtypes of unequal byte size" not in str(exc):
+                raise
+            dof_limits_tensor = wp.to_torch(wp.clone(dof_limits, device=self.device)).to(torch.float32).contiguous()
+            dof_limits_vec = wp.array(
+                dof_limits_tensor.detach().cpu().numpy(),
+                dtype=wp.vec2f,
+                device=self.device,
+            )
+        self._joint_pos_limits.assign(dof_limits_vec)
         self._joint_vel_limits = wp.clone(self._root_view.get_dof_max_velocities(), device=self.device)
         self._joint_effort_limits = wp.clone(self._root_view.get_dof_max_forces(), device=self.device)
         # -- Joint properties (custom)

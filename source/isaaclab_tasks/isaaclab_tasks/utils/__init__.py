@@ -5,5 +5,14 @@
 
 """Sub-package with utilities, data collectors and environment wrappers."""
 
+class PresetCfg:
+    """Compatibility base class for environment preset configuration objects.
+
+    Older Isaac Lab versions expose ``PresetCfg`` from this import path. This
+    minimal stand-in retains typed attribute behavior without imposing any runtime
+    restrictions.
+    """
+
+
 from .importer import import_packages
 from .parse_cfg import get_checkpoint_path, load_cfg_from_registry, parse_env_cfg

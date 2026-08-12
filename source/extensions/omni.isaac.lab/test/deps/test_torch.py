@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+import numpy as np
 import torch
 import torch.utils.benchmark as benchmark
 import unittest
@@ -148,6 +149,41 @@ class TestTorchOperations(unittest.TestCase):
         output_bitwise_or = my_tensor_1 | my_tensor_2
 
         self.assertTrue(torch.allclose(output_logical_or, output_bitwise_or))
+
+    def test_nonzero(self):
+        """Test non-zero operation."""
+
+        for size in [48000, 16000, 8000, 4000, 2000, 1]:
+            # pretty print structure
+            print("\n Size of the tensor:", size)
+
+            with torch.inference_mode():
+                # create a random tensor
+                my_tensor = torch.rand(size) > 0.5
+
+                # check the speed of non-zero operation on torch with CPU
+                timer_nonzero = benchmark.Timer(
+                    stmt="torch.nonzero(my_tensor)", globals={"my_tensor": my_tensor.to("cpu")}
+                )
+                time_value = timer_nonzero.blocked_autorange().median
+                # time_value = timer_nonzero.timeit(number=1000).median
+                print("\tTime for non-zero (cpu, torch)\t :", time_value / 1e-6, "us")
+
+                # check the speed of non-zero operation on torch with cuda:0
+                timer_nonzero = benchmark.Timer(
+                    stmt="torch.nonzero(my_tensor)", globals={"my_tensor": my_tensor.to("cuda:0")}
+                )
+                time_value = timer_nonzero.blocked_autorange().median
+                # time_value = timer_nonzero.timeit(number=1000).median
+                print("\tTime for non-zero (cuda:0, torch):", time_value / 1e-6, "us")
+
+                # check the speed of non-zero operation on numpy
+                timer_nonzero = benchmark.Timer(
+                    stmt="np.nonzero(my_tensor)", globals={"my_tensor": my_tensor.to("cpu").numpy(), "np": np}
+                )
+                time_value = timer_nonzero.blocked_autorange().median
+                # time_value = timer_nonzero.timeit(number=1000).median
+                print("\tTime for non-zero (numpy)\t\t :", time_value / 1e-6, "us")
 
 
 if __name__ == "__main__":

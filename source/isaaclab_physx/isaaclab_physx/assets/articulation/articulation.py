@@ -53,6 +53,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _vector_array_to_float32_array(array: wp.array, device: str) -> wp.array:
+    """Convert Warp vector arrays back to PhysX float32 arrays with Isaac Sim 5 fallback."""
+
+    try:
+        return array.view(wp.float32)
+    except RuntimeError as exc:
+        if "Cannot cast dtypes of unequal byte size" not in str(exc):
+            raise
+        tensor = wp.to_torch(wp.clone(array, device=device)).to(torch.float32).contiguous()
+        return wp.array(tensor.detach().cpu().numpy(), dtype=wp.float32, device=device)
+
+
 class Articulation(BaseArticulation):
     """An articulation asset class.
 
@@ -500,7 +512,9 @@ class Articulation(BaseArticulation):
         self.data._body_com_jacobian_w.timestamp = -1.0
         self.data._gravity_compensation_forces.timestamp = -1.0
         # set into simulation
-        self.root_view.set_root_transforms(self.data._root_link_pose_w.data.view(wp.float32), indices=env_ids)
+        self.root_view.set_root_transforms(
+            _vector_array_to_float32_array(self.data._root_link_pose_w.data, self.device), indices=env_ids
+        )
 
     def write_root_link_pose_to_sim_mask(
         self,
@@ -593,7 +607,9 @@ class Articulation(BaseArticulation):
         self.data._body_com_jacobian_w.timestamp = -1.0
         self.data._gravity_compensation_forces.timestamp = -1.0
         # set into simulation
-        self.root_view.set_root_transforms(self.data._root_link_pose_w.data.view(wp.float32), indices=env_ids)
+        self.root_view.set_root_transforms(
+            _vector_array_to_float32_array(self.data._root_link_pose_w.data, self.device), indices=env_ids
+        )
 
     def write_root_com_pose_to_sim_mask(
         self,
@@ -730,7 +746,9 @@ class Articulation(BaseArticulation):
         self.data._root_state_w.timestamp = -1.0
         self.data._root_com_state_w.timestamp = -1.0
         # set into simulation
-        self.root_view.set_root_velocities(self.data._root_com_vel_w.data.view(wp.float32), indices=env_ids)
+        self.root_view.set_root_velocities(
+            _vector_array_to_float32_array(self.data._root_com_vel_w.data, self.device), indices=env_ids
+        )
 
     def write_root_com_velocity_to_sim_mask(
         self,
@@ -820,7 +838,9 @@ class Articulation(BaseArticulation):
         self.data._root_state_w.timestamp = -1.0
         self.data._root_com_state_w.timestamp = -1.0
         # set into simulation
-        self.root_view.set_root_velocities(self.data._root_link_vel_w.data.view(wp.float32), indices=env_ids)
+        self.root_view.set_root_velocities(
+            _vector_array_to_float32_array(self.data._root_link_vel_w.data, self.device), indices=env_ids
+        )
 
     def write_root_link_velocity_to_sim_mask(
         self,

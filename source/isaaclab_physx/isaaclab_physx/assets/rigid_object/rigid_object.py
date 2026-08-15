@@ -31,6 +31,18 @@ if TYPE_CHECKING:
     from isaaclab.assets.rigid_object.rigid_object_cfg import RigidObjectCfg
 
 
+def _vector_array_to_float32_array(array: wp.array, device: str) -> wp.array:
+    """Convert Warp vector arrays back to PhysX float32 arrays with Isaac Sim 5 fallback."""
+
+    try:
+        return array.view(wp.float32)
+    except RuntimeError as exc:
+        if "Cannot cast dtypes of unequal byte size" not in str(exc):
+            raise
+        tensor = wp.to_torch(wp.clone(array, device=device)).to(torch.float32).contiguous()
+        return wp.array(tensor.detach().cpu().numpy(), dtype=wp.float32, device=device)
+
+
 class RigidObject(BaseRigidObject):
     """A rigid object asset class.
 
@@ -1036,13 +1048,23 @@ class RigidObject(BaseRigidObject):
     def _get_root_link_pose_w_f32(self) -> wp.array:
         """Get a cached float32 view of root_link_pose_w for PhysX TensorAPI. Invalidated in ``_create_buffers``."""
         if self._root_link_pose_w_f32 is None:
-            self._root_link_pose_w_f32 = self.data._root_link_pose_w.data.view(wp.float32)
+            source = self.data._root_link_pose_w.data
+            converted = _vector_array_to_float32_array(source, self.device)
+            if converted.ptr != source.ptr:
+                # The compatibility fallback creates a copy, so rebuild it on every write.
+                return converted
+            self._root_link_pose_w_f32 = converted
         return self._root_link_pose_w_f32
 
     def _get_root_com_vel_w_f32(self) -> wp.array:
         """Get a cached float32 view of root_com_vel_w for PhysX TensorAPI. Invalidated in ``_create_buffers``."""
         if self._root_com_vel_w_f32 is None:
-            self._root_com_vel_w_f32 = self.data._root_com_vel_w.data.view(wp.float32)
+            source = self.data._root_com_vel_w.data
+            converted = _vector_array_to_float32_array(source, self.device)
+            if converted.ptr != source.ptr:
+                # The compatibility fallback creates a copy, so rebuild it on every write.
+                return converted
+            self._root_com_vel_w_f32 = converted
         return self._root_com_vel_w_f32
 
     def _get_inst_wrench_force_f32(self) -> wp.array:

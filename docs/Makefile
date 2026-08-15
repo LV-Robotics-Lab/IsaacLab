@@ -7,14 +7,16 @@ SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
 SOURCEDIR     = .
 BUILDDIR      = _build
+DOCS_DEFAULT_REF ?= main
 
-# Put it first so that "make" without argument is like "make help".
-help:
-	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+.PHONY: multi-docs
+multi-docs:
+	@sphinx-multiversion "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
+	@test -f "$(BUILDDIR)/$(DOCS_DEFAULT_REF)/index.html" || \
+		(echo "Default docs ref '$(DOCS_DEFAULT_REF)' was not built" && exit 1)
+	@sed 's|__DOCS_DEFAULT_REF__|$(DOCS_DEFAULT_REF)|g' _redirect/index.html > $(BUILDDIR)/index.html
 
-.PHONY: help Makefile
-
-# Catch-all target: route all unknown targets to Sphinx using the new
-# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile
-	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+.PHONY: current-docs
+current-docs:
+	@rm -rf "$(BUILDDIR)/current"
+	@$(SPHINXBUILD) -W --keep-going "$(SOURCEDIR)" "$(BUILDDIR)/current" $(SPHINXOPTS)

@@ -13,19 +13,22 @@ and useful for everyone. These may happen in forms of:
   * Documentation improvements
   * Tutorials and tutorial improvements
 
+We prefer GitHub `discussions <https://github.com/isaac-sim/IsaacLab/discussions>`_ for discussing ideas,
+asking questions, conversations and requests for new features.
 
-.. attention::
-
-   We prefer GitHub `discussions <https://github.com/isaac-sim/IsaacLab/discussions>`_ for discussing ideas,
-   asking questions, conversations and requests for new features.
-
-   Please use the
-   `issue tracker <https://github.com/isaac-sim/IsaacLab/issues>`_ only to track executable pieces of work
-   with a definite scope and a clear deliverable. These can be fixing bugs, new features, or general updates.
+Please use the
+`issue tracker <https://github.com/isaac-sim/IsaacLab/issues>`_ only to track executable pieces of work
+with a definite scope and a clear deliverable. These can be fixing bugs, new features, or general updates.
 
 
 Contributing Code
 -----------------
+
+.. attention::
+
+   Please refer to the `Google Style Guide <https://google.github.io/styleguide/pyguide.html>`__
+   for the coding style before contributing to the codebase. In the coding style section,
+   we outline the specific deviations from the style guide that we follow in the codebase.
 
 We use `GitHub <https://github.com/isaac-sim/IsaacLab>`__ for code hosting. Please
 follow the following steps to contribute code:
@@ -51,72 +54,8 @@ Please ensure that your code is well-formatted, documented and passes all the te
    Large pull requests are difficult to review and may take a long time to merge.
 
 
-Coding Style
-------------
+More details on the code style and testing can be found in the `Coding Style`_ and `Unit Testing`_ sections.
 
-We follow the `Google Style
-Guides <https://google.github.io/styleguide/pyguide.html>`__ for the
-codebase. For Python code, the PEP guidelines are followed. Most
-important ones are `PEP-8 <https://www.python.org/dev/peps/pep-0008/>`__
-for code comments and layout,
-`PEP-484 <http://www.python.org/dev/peps/pep-0484>`__ and
-`PEP-585 <https://www.python.org/dev/peps/pep-0585/>`__ for
-type-hinting.
-
-For documentation, we adopt the `Google Style Guide <https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html>`__
-for docstrings. We use `Sphinx <https://www.sphinx-doc.org/en/master/>`__ for generating the documentation.
-Please make sure that your code is well-documented and follows the guidelines.
-
-Circular Imports
-^^^^^^^^^^^^^^^^
-
-Circular imports happen when two modules import each other, which is a common issue in Python.
-You can prevent circular imports by adhering to the best practices outlined in this
-`StackOverflow post <https://stackoverflow.com/questions/744373/circular-or-cyclic-imports-in-python>`__.
-
-In general, it is essential to avoid circular imports as they can lead to unpredictable behavior.
-
-However, in our codebase, we encounter circular imports at a sub-package level. This situation arises
-due to our specific code structure. We organize classes or functions and their corresponding configuration
-objects into separate files. This separation enhances code readability and maintainability. Nevertheless,
-it can result in circular imports because, in many configuration objects, we specify classes or functions
-as default values using the attributes ``class_type`` and ``func`` respectively.
-
-To address circular imports, we leverage the `typing.TYPE_CHECKING
-<https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING>`_ variable. This special variable is
-evaluated only during type-checking, allowing us to import classes or functions in the configuration objects
-without triggering circular imports.
-
-It is important to note that this is the sole instance within our codebase where circular imports are used
-and are acceptable. In all other scenarios, we adhere to best practices and recommend that you do the same.
-
-Type-hinting
-^^^^^^^^^^^^
-
-To make the code more readable, we use `type hints <https://docs.python.org/3/library/typing.html>`__ for
-all the functions and classes. This helps in understanding the code and makes it easier to maintain. Following
-this practice also helps in catching bugs early with static type checkers like `mypy <https://mypy.readthedocs.io/en/stable/>`__.
-
-To avoid duplication of efforts, we do not specify type hints for the arguments and return values in the docstrings.
-However, if your function or class is not self-explanatory, please add a docstring with the type hints.
-
-Tools
-^^^^^
-
-We use the following tools for maintaining code quality:
-
-* `pre-commit <https://pre-commit.com/>`__: Runs a list of formatters and linters over the codebase.
-* `black <https://black.readthedocs.io/en/stable/>`__: The uncompromising code formatter.
-* `flake8 <https://flake8.pycqa.org/en/latest/>`__: A wrapper around PyFlakes, pycodestyle and
-  McCabe complexity checker.
-
-Please check `here <https://pre-commit.com/#install>`__ for instructions
-to set these up. To run over the entire repository, please execute the
-following command in the terminal:
-
-.. code:: bash
-
-   ./isaaclab.sh --format  # or "./isaaclab.sh -f"
 
 Contributing Documentation
 --------------------------
@@ -151,7 +90,7 @@ in the terminal:
 
 .. code:: bash
 
-   xdg-open docs/_build/html/index.html
+   xdg-open docs/_build/current/index.html
 
 .. hint::
 
@@ -176,12 +115,8 @@ integrated with the `NVIDIA Omniverse Platform <https://developer.nvidia.com/omn
 Since all assets are hosted on Nucleus, we do not need to include them in the repository. However,
 we need to include the links to the assets in the documentation.
 
-The included assets are part of the `Isaac Sim Content <https://docs.omniverse.nvidia.com/isaacsim/latest/features/environment_setup/assets/usd_assets_overview.html>`__.
-To use this content, you need to download the files to a Nucleus server or create an **Isaac** Mount on
-a Nucleus server.
-
-Please check the `Isaac Sim documentation <https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/install_faq.html#assets-and-nucleus>`__
-for more information on how to download the assets.
+Please checkout the `Isaac Sim Assets <https://docs.isaacsim.omniverse.nvidia.com/latest/assets/usd_assets_overview.html>`__
+for more information on what is presently available.
 
 .. attention::
 
@@ -200,22 +135,42 @@ In case you have any questions, please feel free to reach out to us through e-ma
 in the repository.
 
 
-Maintaining a changelog
------------------------
+Maintaining a changelog and extension.toml
+------------------------------------------
 
-Each extension maintains a changelog in the ``CHANGELOG.rst`` file in the ``docs`` directory. The
-file is written in `reStructuredText <https://docutils.sourceforge.io/rst.html>`__ format. It
-contains a curated, chronologically ordered list of notable changes for each version of the extension.
+Each extension maintains a changelog in the ``CHANGELOG.rst`` file in the ``docs`` directory,
+as well as a ``extension.toml`` file in the ``config`` directory.
 
+The ``extension.toml`` file contains the metadata for the extension. It is used to describe the
+name, version, description, and other metadata of the extension.
+
+The ``CHANGELOG.rst`` is a file that contains the curated, chronologically ordered list of notable changes
+for each version of the extension.
+
+.. note::
+
+   ``CHANGELOG.rst`` and ``extension.toml`` are compiled by CI from per-PR **fragment
+   files** — contributors do not edit them directly. For every package your PR touches
+   in ``source/<pkg>/`` (outside ``changelog.d/``), add one fragment under
+   ``source/<pkg>/changelog.d/<slug>.<tier>.rst``:
+
+   * ``<slug>.rst`` — patch bump
+   * ``<slug>.minor.rst`` — minor bump (new public API)
+   * ``<slug>.major.rst`` — major bump (breaking change)
+   * ``<slug>.skip`` — no entry, no bump (CI / docs / test-only PRs)
+
+   ``<slug>`` is any short, unique name; your branch name with ``/`` replaced by ``-``
+   is the recommended default. Within a batch the highest tier wins for the package.
+   The version on ``extension.toml`` is bumped by CI according to
+   `Semantic Versioning <https://semver.org/>`__.
+
+The changelog file is written in `reStructuredText <https://docutils.sourceforge.io/rst.html>`__ format.
 The goal of this changelog is to help users and contributors see precisely what notable changes have
 been made between each release (or version) of the extension. This is a *MUST* for every extension.
 
-For updating the changelog, please follow the following guidelines:
+For each fragment, please follow the following guidelines:
 
-* Each version should have a section with the version number and the release date.
-* The version number is updated according to `Semantic Versioning <https://semver.org/>`__. The
-  release date is the date on which the version is released.
-* Each version is divided into subsections based on the type of changes made.
+* Each fragment is divided into subsections based on the type of changes made.
 
   * ``Added``: For new features.
   * ``Changed``: For changes in existing functionality.
@@ -224,47 +179,573 @@ For updating the changelog, please follow the following guidelines:
   * ``Fixed``: For any bug fixes.
 
 * Each change is described in its corresponding sub-section with a bullet point.
-* The bullet points are written in the past tense and in imperative mode.
+* The bullet points are written in the **past tense**.
 
-For example, the following is a sample changelog:
+  * This means that the change is described as if it has already happened.
+  * The bullet points should be concise and to the point. They should not be verbose.
+  * The bullet point should also include the reason for the change, if applicable.
+
+
+.. tip::
+
+   When in doubt, please check the style in the existing changelog files and follow the same style.
+
+For example, ``source/isaaclab/changelog.d/<slug>.minor.rst``:
 
 .. code:: rst
-
-    Changelog
-    ---------
-
-    0.1.0 (2021-02-01)
-    ~~~~~~~~~~~~~~~~~~
 
     Added
     ^^^^^
 
-    * Added a new feature.
+    * Added a new feature that helps in a 10x speedup.
 
     Changed
     ^^^^^^^
 
-    * Changed an existing feature.
+    * Changed an existing feature. Earlier, we were using :meth:`torch.bmm` to perform the matrix multiplication.
+      However, this was slow for large matrices. We have now switched to using :meth:`torch.einsum` which is
+      significantly faster.
 
     Deprecated
     ^^^^^^^^^^
 
-    * Deprecated an existing feature.
+    * Deprecated an existing feature in favor of a new feature.
 
     Removed
     ^^^^^^^
 
-    * Removed an existing feature.
+    * Removed an existing feature. This was done to simplify the codebase and reduce the complexity.
 
     Fixed
     ^^^^^
 
-    * Fixed a bug.
+    * Fixed crashing of the :meth:`my_function` when the input was too large.
+      We now use :meth:`torch.einsum` that is able to handle larger inputs.
 
-    0.0.1 (2021-01-01)
-    ~~~~~~~~~~~~~~~~~~
 
-    Added
-    ^^^^^
+Coding Style
+------------
 
-    * Added a new feature.
+We follow the `Google Style
+Guides <https://google.github.io/styleguide/pyguide.html>`__ for the
+codebase. For Python code, the PEP guidelines are followed. Most
+important ones are `PEP-8 <https://www.python.org/dev/peps/pep-0008/>`__
+for code comments and layout,
+`PEP-484 <http://www.python.org/dev/peps/pep-0484>`__ and
+`PEP-585 <https://www.python.org/dev/peps/pep-0585/>`__ for
+type-hinting.
+
+For documentation, we adopt the `Google Style Guide <https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html>`__
+for docstrings. We use `Sphinx <https://www.sphinx-doc.org/en/master/>`__ for generating the documentation.
+Please make sure that your code is well-documented and follows the guidelines.
+
+Code Structure
+^^^^^^^^^^^^^^
+
+We follow a specific structure for the codebase. This helps in maintaining the codebase and makes it easier to
+understand.
+
+In a Python file, we follow the following structure:
+
+.. code:: python
+
+   # Imports: These are sorted by the pre-commit hooks.
+   # Constants
+   # Functions (public)
+   # Classes (public)
+   # _Functions (private)
+   # _Classes (private)
+
+Imports are sorted by the pre-commit hooks. Unless there is a good reason to do otherwise, please do not
+import the modules inside functions or classes. To deal with circular imports, we use the
+:obj:`typing.TYPE_CHECKING` variable. Please refer to the `Circular Imports`_ section for more details.
+
+Note that ``__init__.py`` files are an exception to the above: they use
+:func:`~isaaclab.utils.module.lazy_export` instead of traditional imports.
+See the `Lazy Loading & Module Exports`_ section for details.
+
+Python does not have a concept of private and public classes and functions. However, we follow the
+convention of prefixing the private functions and classes with an underscore.
+The public functions and classes are the ones that are intended to be used by the users. The private
+functions and classes are the ones that are intended to be used internally in that file.
+Irrespective of the public or private nature of the functions and classes, we follow the Style Guide
+for the code and make sure that the code and documentation are consistent.
+
+Similarly, within Python classes, we follow the following structure:
+
+.. code:: python
+
+   # Constants
+   # Class variables (public or private): Must have the type hint ClassVar[type]
+   # Dunder methods: __init__, __del__
+   # Representation: __repr__, __str__
+   # Properties: @property
+   # Instance methods (public)
+   # Class methods (public)
+   # Static methods (public)
+   # _Instance methods (private)
+   # _Class methods (private)
+   # _Static methods (private)
+
+The rule of thumb is that the functions within the classes are ordered in the way a user would
+expect to use them. For instance, if the class contains the method :meth:`initialize`, :meth:`reset`,
+:meth:`update`, and :meth:`close`, then they should be listed in the order of their usage.
+The same applies for private functions in the class. Their order is based on the order of call inside the
+class.
+
+.. dropdown:: Code skeleton
+   :icon: code
+
+   .. literalinclude:: snippets/code_skeleton.py
+      :language: python
+
+Circular Imports
+^^^^^^^^^^^^^^^^
+
+Circular imports happen when two modules import each other, which is a common issue in Python.
+You can prevent circular imports by adhering to the best practices outlined in this
+`StackOverflow post <https://stackoverflow.com/questions/744373/circular-or-cyclic-imports-in-python>`__.
+
+In general, it is essential to avoid circular imports as they can lead to unpredictable behavior.
+
+However, in our codebase, we encounter circular imports at a sub-package level. This situation arises
+due to our specific code structure. We organize classes or functions and their corresponding configuration
+objects into separate files. This separation enhances code readability and maintainability. Nevertheless,
+it can result in circular imports because, in many configuration objects, we specify classes or functions
+as default values using the attributes ``class_type`` and ``func`` respectively.
+
+To address this, we use two complementary techniques:
+
+1. **Resolvable strings** — Store ``class_type`` and ``func`` as ``{DIR}``-based strings
+   (e.g. ``"{DIR}.sensor:Sensor"``) so the implementation module is never imported at config
+   construction time. The string is resolved to the actual class (via :class:`~isaaclab.utils.string.ResolvableString`)
+   after ``SimulationApp`` launches.
+2. **TYPE_CHECKING guards** — Import the implementation class under `typing.TYPE_CHECKING
+   <https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING>`_ so that IDEs and type
+   checkers can provide autocomplete on the type annotation without triggering a runtime import.
+
+See the `Resolvable Strings`_ and `Lazy Loading & Module Exports`_ sections for full
+examples of both patterns.
+
+Lazy Loading & Module Exports
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Every ``__init__.py`` in Isaac Lab uses **lazy loading** so that importing a top-level package
+(e.g. ``import isaaclab.sensors``) does not eagerly pull in heavyweight dependencies like
+``pxr``, ``omni``, or ``scipy``. This is critical because config classes must be constructable
+*before* ``SimulationApp`` is launched.
+
+We follow `SPEC 1 — Lazy Loading of Submodules and Functions
+<https://scientific-python.org/specs/spec-0001/>`__ and use the `lazy_loader
+<https://pypi.org/project/lazy-loader/>`__ library (endorsed by NumPy, SciPy, scikit-image,
+scikit-learn, NetworkX) with ``.pyi`` type-stub files. The stub is the **single source of
+truth** for both IDE autocomplete and runtime lazy loading.
+
+**Standard pattern** — the vast majority of ``__init__.py`` files:
+
+.. code:: python
+
+   # mypackage/__init__.py
+   from isaaclab.utils.module import lazy_export
+
+   lazy_export()
+
+With a corresponding type stub adjacent to it:
+
+.. code:: python
+
+   # mypackage/__init__.pyi
+   __all__ = ["MyClass", "MyOtherClass", "my_function"]
+
+   from .my_module import MyClass, MyOtherClass
+   from .my_other_module import my_function
+
+Key rules for ``.pyi`` stubs:
+
+* The ``__all__`` list at the top marks names as public re-exports (per `PEP 484
+  <https://peps.python.org/pep-0484/#stub-files>`__).
+* Group imports from the same submodule on one line. Use parenthesized multi-line
+  imports if the line exceeds 100 characters.
+* Use **relative imports** (``from .something import ...``) for local submodule
+  symbols. Absolute wildcard imports (``from pkg import *``) are only used for
+  cross-package fallbacks (see below).
+* Include the standard Isaac Lab license header.
+
+**Cross-package fallback** — for modules that re-export names from another package
+(e.g. task MDP modules that delegate to ``isaaclab.envs.mdp``), add a wildcard
+import for the external package in the ``.pyi`` stub:
+
+.. code:: python
+
+   # isaaclab_tasks/.../mdp/__init__.pyi
+   __all__ = ["MyReward", "MyObservation"]
+
+   from .rewards import MyReward
+   from .observations import MyObservation
+
+   from isaaclab.envs.mdp import *
+
+The ``__init__.py`` stays the same as the standard pattern — just ``lazy_export()``
+with no arguments:
+
+.. code:: python
+
+   # isaaclab_tasks/.../mdp/__init__.py
+   from isaaclab.utils.module import lazy_export
+
+   lazy_export()
+
+At runtime, ``lazy_export`` parses the ``.pyi`` stub and uses the absolute wildcard
+import (``from isaaclab.envs.mdp import *``) as a fallback: any name not found in
+the local submodules is looked up in the specified package. This also gives type
+checkers and IDEs full visibility into the re-exported symbols.
+
+**Relative wildcard re-exports** — the stub can also use ``from .submodule import *``
+to eagerly export all public names from a local submodule. This is resolved at
+import time (not lazily) and is useful when a submodule's public API is large or
+changes frequently.
+
+.. note::
+
+   Relative wildcard re-exports bypass lazy loading and eagerly import every public
+   name from the submodule at package init time. In general, we advise against using
+   them unless absolutely necessary. Prefer listing explicit named imports in the stub
+   so that the public API surface is clear, reviewable, and remains lazily loaded.
+
+.. code:: python
+
+   # isaaclab_tasks/.../mdp/__init__.pyi
+   from .rewards import *
+   from .observations import *
+
+   from isaaclab.envs.mdp import *
+
+**Ensuring .pyi stubs are distributed**
+
+The ``setup.py`` for each package includes ``package_data={"": ["*.pyi"]}`` so that stub
+files are included in sdist and wheel distributions. The pre-commit ``insert-license`` hook
+is configured to add license headers to ``.pyi`` files automatically (``\.(pyi?|ya?ml)$``).
+
+Resolvable Strings
+^^^^^^^^^^^^^^^^^^
+
+When a config field needs to reference a class or callable that depends on the simulator
+runtime, store it as a :class:`~isaaclab.utils.string.ResolvableString` rather than a
+direct reference. This avoids eagerly importing heavyweight modules (``omni``, ``pxr``,
+etc.) at config construction time — the string is resolved to the actual callable only
+after ``SimulationApp`` has been initialized.
+
+You can use either the ``{DIR}`` shorthand or a fully-qualified module path:
+
+.. code:: python
+
+   # Good — {DIR} shorthand (resolved to the current package at runtime)
+   class_type: type[Sensor] | str = "{DIR}.sensor:Sensor"
+
+   # Good — fully-qualified path (useful for cross-package references)
+   class_type: type[Sensor] | str = "isaaclab.sensors.my_sensor.sensor:Sensor"
+
+   # Bad — eagerly imports the implementation module
+   from .sensor import Sensor
+   class_type: type = Sensor
+
+The ``{DIR}`` placeholder is resolved at runtime to the fully-qualified package name of the
+directory containing the config file (e.g. ``isaaclab.sensors.my_sensor``). Prefer ``{DIR}``
+for references within the same package since it stays correct across renames and moves.
+
+For the type annotation (``type[Sensor]``), import the class under a ``TYPE_CHECKING`` guard
+so that the IDE can still provide autocomplete without triggering a runtime import:
+
+.. code:: python
+
+   from __future__ import annotations
+   import typing
+
+   if typing.TYPE_CHECKING:
+       from .sensor import Sensor
+
+Config + Implementation File Split
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Classes and their configuration objects live in separate files. This keeps config classes
+free of heavy runtime imports:
+
+.. code:: text
+
+   my_sensor/
+   ├── __init__.py          # lazy_export()
+   ├── __init__.pyi         # re-exports: SensorCfg, Sensor
+   ├── sensor_cfg.py        # pure data — no runtime deps
+   └── sensor.py            # implementation — may import omni, pxr, etc.
+
+``__init__.py`` — uses ``lazy_export()`` to lazily load names from the stub:
+
+.. code:: python
+
+   # my_sensor/__init__.py
+   from isaaclab.utils.module import lazy_export
+
+   lazy_export()
+
+``__init__.pyi`` — declares the public API for both IDE autocomplete and lazy loading:
+
+.. code:: python
+
+   # my_sensor/__init__.pyi
+   __all__ = ["SensorCfg", "Sensor"]
+
+   from .sensor_cfg import SensorCfg
+   from .sensor import Sensor
+
+``sensor_cfg.py`` — pure data; references the implementation class by resolvable string
+to avoid importing it:
+
+.. code:: python
+
+   # my_sensor/sensor_cfg.py
+   from __future__ import annotations
+   import typing
+
+   from isaaclab.utils.configclass import configclass
+
+   if typing.TYPE_CHECKING:
+       from .sensor import Sensor
+
+   @configclass
+   class SensorCfg:
+       class_type: type[Sensor] | str = "{DIR}.sensor:Sensor"
+
+``sensor.py`` — the implementation; may freely import heavyweight dependencies:
+
+.. code:: python
+
+   # my_sensor/sensor.py
+   import omni.isaac.core  # heavy — only loaded when this module is accessed
+
+   from .sensor_cfg import SensorCfg
+
+   class Sensor:
+       def __init__(self, cfg: SensorCfg):
+           ...
+
+Type-hinting
+^^^^^^^^^^^^
+
+To make the code more readable, we use `type hints <https://docs.python.org/3/library/typing.html>`__ for
+all the functions and classes. This helps in understanding the code and makes it easier to maintain. Following
+this practice also helps in catching bugs early with static type checkers like `mypy <https://mypy.readthedocs.io/en/stable/>`__.
+
+**Type-hinting only in the function signature**
+
+To avoid duplication of efforts, we do not specify type hints for the arguments and return values in the docstrings.
+
+For instance, the following are bad examples for various reasons:
+
+.. code:: python
+
+   def my_function(a, b):
+      """Adds two numbers.
+
+      This function is a bad example. Reason: No type hints anywhere.
+
+      Args:
+         a: The first argument.
+         b: The second argument.
+
+      Returns:
+         The sum of the two arguments.
+      """
+      return a + b
+
+.. code:: python
+
+   def my_function(a, b):
+      """Adds two numbers.
+
+      This function is a bad example. Reason: Type hints in the docstring and not in the
+      function signature.
+
+      Args:
+         a (int): The first argument.
+         b (int): The second argument.
+
+      Returns:
+         int: The sum of the two arguments.
+      """
+      return a + b
+
+.. code:: python
+
+   def my_function(a: int, b: int) -> int:
+      """Adds two numbers.
+
+      This function is a bad example. Reason: Type hints in the docstring and in the function
+      signature. Redundancy.
+
+      Args:
+         a (int): The first argument.
+         b (int): The second argument.
+
+      Returns:
+         int: The sum of the two arguments.
+      """
+      return a + b
+
+The following is how we expect you to write the docstrings and type hints:
+
+.. code:: python
+
+   def my_function(a: int, b: int) -> int:
+      """Adds two numbers.
+
+      This function is a good example. Reason: Type hints in the function signature and not in the
+      docstring.
+
+      Args:
+         a: The first argument.
+         b: The second argument.
+
+      Returns:
+         The sum of the two arguments.
+      """
+      return a + b
+
+**No type-hinting for None**
+
+We do not specify the return type of :obj:`None` in the docstrings. This is because
+it is not necessary and can be inferred from the function signature.
+
+For instance, the following is a bad example:
+
+.. code:: python
+
+   def my_function(x: int | None) -> None:
+      pass
+
+Instead, we recommend the following:
+
+.. code:: python
+
+   def my_function(x: int | None):
+      pass
+
+Documenting the code
+^^^^^^^^^^^^^^^^^^^^
+
+The code documentation is as important as the code itself. It helps in understanding the code and makes
+it easier to maintain. However, more often than not, the documentation is an afterthought or gets rushed
+to keep up with the development pace.
+
+**What is considered as a bad documentation?**
+
+* If someone else wants to use the code, they cannot understand the code just by reading the documentation.
+
+  What this means is that the documentation is not complete or is not written in a way that is easy to understand.
+  The next time someone wants to use the code, they will have to spend time understanding the code (in the best
+  case scenario), or scrap the code and start from scratch (in the worst case scenario).
+
+* Certain design subtleties are not documented and are only apparent from the code.
+
+  Often certain design decisions are made to address specific use cases. These use cases are not
+  obvious to someone who wants to use the code. They may change the code in a way that is not intuitive
+  and unintentionally break the code.
+
+* The documentation is not updated when the code is updated.
+
+  This means that the documentation is not kept up to date with the code. It is important to update the
+  documentation when the code is updated. This helps in keeping the documentation up to date and in sync
+  with the code.
+
+**What is considered good documentation?**
+
+We recommend thinking of the code documentation as a living document that helps the reader understand
+the *what, why and how* of the code. Often we see documentation that only explains the
+what but not the how or why. This is not helpful in the long run.
+
+We suggest always thinking of the documentation from a new user's perspective. They should be able to directly
+check the documentation and have a good understanding of the code.
+
+For information on how to write good documentation, please check the notes on
+`Dart's effective documentation <https://dart.dev/effective-dart/documentation>`__
+and `technical writing <https://en.wikiversity.org/wiki/Technical_writing/Style>`__.
+We summarize the key points below:
+
+* Inform (educate the reader) and persuade (convince the reader).
+  * Have a clear aim in mind, and make sure everything you write is towards that aim alone.
+  * Use examples and analogies before introducing abstract concepts.
+* Use the right tone for the audience.
+* Compose simple sentences in active voice.
+* Avoid unnecessary jargon and repetition. Use plain English.
+* Avoid ambiguous phrases such as 'kind of', 'sort of', 'a bit', etc.
+* State important information at the beginning of the sentence.
+* Say exactly what you mean. Don't avoid writing the uncomfortable truth.
+
+
+Unit Testing
+------------
+
+We use `pytest <https://docs.pytest.org>`__ for unit testing.
+Good tests not only cover the basic functionality of the code but also the edge cases.
+They should be able to catch regressions and ensure that the code is working as expected.
+Please make sure that you add tests for your changes.
+
+.. tab-set::
+   :sync-group: os
+
+   .. tab-item:: :icon:`fa-brands fa-linux` Linux
+      :sync: linux
+
+      .. code-block:: bash
+
+         # Run all tests
+         ./isaaclab.sh --test  # or "./isaaclab.sh -t"
+
+         # Run all tests in a particular file
+         ./isaaclab.sh -p -m pytest source/isaaclab/test/deps/test_torch.py
+
+         # Run a particular test
+         ./isaaclab.sh -p -m pytest source/isaaclab/test/deps/test_torch.py::test_array_slicing
+
+   .. tab-item:: :icon:`fa-brands fa-windows` Windows
+      :sync: windows
+
+      .. code-block:: bash
+
+         # Run all tests
+         isaaclab.bat --test  # or "isaaclab.bat -t"
+
+         # Run all tests in a particular file
+         isaaclab.bat -p -m pytest source/isaaclab/test/deps/test_torch.py
+
+         # Run a particular test
+         isaaclab.bat -p -m pytest source/isaaclab/test/deps/test_torch.py::test_array_slicing
+
+
+Tools
+-----
+
+We use the following tools for maintaining code quality:
+
+* `pre-commit <https://pre-commit.com/>`__: Runs a list of formatters and linters over the codebase.
+* `ruff <https://github.com/astral-sh/ruff/>`__: An extremely fast Python linter and formatter.
+
+Please check `here <https://pre-commit.com/#install>`__ for instructions
+to set these up. To run over the entire repository, please execute the
+following command in the terminal:
+
+.. tab-set::
+   :sync-group: os
+
+   .. tab-item:: :icon:`fa-brands fa-linux` Linux
+      :sync: linux
+
+      .. code-block:: bash
+
+         ./isaaclab.sh --format  # or "./isaaclab.sh -f"
+
+   .. tab-item:: :icon:`fa-brands fa-windows` Windows
+      :sync: windows
+
+      .. code-block:: bash
+
+         isaaclab.bat --format  # or "isaaclab.bat -f"

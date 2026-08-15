@@ -7,14 +7,14 @@ Docker Guide
 .. caution::
 
     Due to the dependency on Isaac Sim docker image, by running this container you are implicitly
-    agreeing to the `NVIDIA Omniverse EULA`_. If you do not agree to the EULA, do not run this container.
+    agreeing to the `NVIDIA Software License Agreement`_. If you do not agree to the EULA, do not run this container.
 
 Setup Instructions
 ------------------
 
 .. note::
 
-    The following steps are taken from the NVIDIA Omniverse Isaac Sim documentation on `container installation`_.
+    The following steps are taken from the Isaac Sim documentation on `container installation`_.
     They have been added here for the sake of completeness.
 
 
@@ -37,36 +37,6 @@ We recommend using these versions or newer.
     the Isaac Lab directory is placed under the ``/home`` directory tree when using docker.
 
 
-Obtaining the Isaac Sim Container
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-* Get access to the `Isaac Sim container`_ by joining the NVIDIA Developer Program credentials.
-* Generate your `NGC API key`_ to access locked container images from NVIDIA GPU Cloud (NGC).
-
-  * This step requires you to create an NGC account if you do not already have one.
-  * You would also need to install the NGC CLI to perform operations from the command line.
-  * Once you have your generated API key and have installed the NGC CLI, you need to log in to NGC
-    from the terminal.
-
-    .. code:: bash
-
-        ngc config set
-
-* Use the command line to pull the Isaac Sim container image from NGC.
-
-  .. code:: bash
-
-      docker login nvcr.io
-
-  * For the username, enter ``$oauthtoken`` exactly as shown. It is a special username that is used to
-    authenticate with NGC.
-
-    .. code:: text
-
-        Username: $oauthtoken
-        Password: <Your NGC API Key>
-
-
 Directory Organization
 ----------------------
 
@@ -77,9 +47,12 @@ needed to run Isaac Lab inside a Docker container. A subset of these are summari
   Dockerfiles which end with something else, (i.e. ``Dockerfile.ros2``) build an `image extension <#isaac-lab-image-extensions>`_.
 * **docker-compose.yaml**: Creates mounts to allow direct editing of Isaac Lab code from the host machine that runs
   the container. It also creates several named volumes such as ``isaac-cache-kit`` to
-  store frequently re-used resources compiled by Isaac Sim, such as shaders, and to retain logs, data, and documents.
+  store frequently reused resources compiled by Isaac Sim, such as shaders, and to retain logs, data, and documents.
 * **.env.base**: Stores environment variables required for the ``base`` build process and the container itself. ``.env``
   files which end with something else (i.e. ``.env.ros2``) define these for `image extension <#isaac-lab-image-extensions>`_.
+* **docker-compose.cloudxr-runtime.patch.yaml**: A patch file that is applied to enable CloudXR Runtime support for
+  streaming to compatible XR devices. It defines services and volumes for CloudXR Runtime and the base.
+* **.env.cloudxr-runtime**: Environment variables for the CloudXR Runtime support.
 * **container.py**: A utility script that interfaces with tools in ``utils`` to configure and build the image,
   and run and interact with the container.
 
@@ -103,6 +76,7 @@ Running the Container
 The script ``container.py`` parallels basic ``docker compose`` commands. Each can accept an `image extension argument <#isaac-lab-image-extensions>`_,
 or else they will default to the ``base`` image extension. These commands are:
 
+* **build**: This builds the image for the given profile. It does not bring up the container.
 * **start**: This builds the image and brings up the container in detached mode (i.e. in the background).
 * **enter**: This begins a new bash process in an existing Isaac Lab container, and which can be exited
   without bringing down the container.
@@ -128,6 +102,20 @@ The following shows how to launch the container in a detached state and enter it
     # We pass 'base' explicitly, but if we hadn't it would default to 'base'
     ./docker/container.py enter base
 
+The Isaac Lab base, ROS 2, and cuRobo images run as a non-root user with uid/gid 1000 to keep
+bind-mounted workspaces writable on GitHub runners. If you run one of these images directly with
+``docker run`` and your host uid differs, pass Docker's ``--user "$(id -u):1000"`` option so
+new files on bind mounts are owned by your host user while retaining runtime-home access.
+
+If you are upgrading an existing Compose setup from older root-based images, recreate the named
+volumes before starting the new images. Older cache, log, and data volumes may contain root-owned
+files that the uid/gid 1000 runtime user cannot update. Copy any artifacts you want to keep, then
+remove the old Compose volumes from the ``docker`` directory:
+
+.. code:: bash
+
+    docker compose --file docker-compose.yaml --profile base --env-file .env.base down --volumes
+
 To copy files from the base container to the host machine, you can use the following command:
 
 .. code:: bash
@@ -142,6 +130,23 @@ directories to the ``docker/artifacts`` directory. This is useful for copying th
 
     # stop the container
     ./docker/container.py stop
+
+
+CloudXR Runtime Support
+~~~~~~~~~~~~~~~~~~~~~~~
+
+To enable CloudXR Runtime for streaming to compatible XR devices, you need to apply the patch file
+``docker-compose.cloudxr-runtime.patch.yaml`` to run CloudXR Runtime container. The patch file defines services and
+volumes for CloudXR Runtime and base. The environment variables required for CloudXR Runtime are specified in the
+``.env.cloudxr-runtime`` file. To start or stop the CloudXR runtime container with base, use the following command:
+
+.. code:: bash
+
+    # Start CloudXR Runtime container with base.
+    ./docker/container.py start --files docker-compose.cloudxr-runtime.patch.yaml --env-file .env.cloudxr-runtime
+
+    # Stop CloudXR Runtime container and base.
+    ./docker/container.py stop --files docker-compose.cloudxr-runtime.patch.yaml --env-file .env.cloudxr-runtime
 
 
 X11 forwarding
@@ -240,22 +245,37 @@ To view the contents of these volumes, you can use the following command:
 Isaac Lab Image Extensions
 --------------------------
 
-The produced image depends upon the arguments passed to ``container.py start`` and ``container.py stop``. These
+The produced image depends on the arguments passed to ``container.py start`` and ``container.py stop``. These
 commands accept an image extension parameter as an additional argument. If no argument is passed, then this
 parameter defaults to ``base``. Currently, the only valid values are (``base``, ``ros2``).
-Only one image extension can be passed at a time. The produced container will be named ``isaac-lab-${profile}``,
-where ``${profile}`` is the image extension name.
+Only one image extension can be passed at a time.  The produced image and container will be named
+``isaac-lab-${profile}``, where ``${profile}`` is the image extension name.
+
+``suffix`` is an optional string argument to ``container.py`` that specifies a docker image and
+container name suffix, which can be useful for development purposes. By default ``${suffix}`` is the empty string.
+If ``${suffix}`` is a nonempty string, then the produced docker image and container will be named
+``isaac-lab-${profile}-${suffix}``, where a hyphen is inserted between ``${profile}`` and ``${suffix}`` in
+the name. ``suffix`` should not be used with cluster deployments.
 
 .. code:: bash
 
-    # start base by default
+    # start base by default, named isaac-lab-base
     ./docker/container.py start
-    # stop base explicitly
+    # stop base explicitly, named isaac-lab-base
     ./docker/container.py stop base
-    # start ros2 container
+    # start ros2 container named isaac-lab-ros2
     ./docker/container.py start ros2
-    # stop ros2 container
+    # stop ros2 container named isaac-lab-ros2
     ./docker/container.py stop ros2
+
+    # start base container named isaac-lab-base-custom
+    ./docker/container.py start base --suffix custom
+    # stop base container named isaac-lab-base-custom
+    ./docker/container.py stop base --suffix custom
+    # start ros2 container named isaac-lab-ros2-custom
+    ./docker/container.py start ros2 --suffix custom
+    # stop ros2 container named isaac-lab-ros2-custom
+    ./docker/container.py stop ros2 --suffix custom
 
 The passed image extension argument will build the image defined in ``Dockerfile.${image_extension}``,
 with the corresponding `profile`_ in the ``docker-compose.yaml`` and the envars from ``.env.${image_extension}``
@@ -280,25 +300,89 @@ The container defaults to ``FastRTPS``, but ``CylconeDDS`` is also supported. Ea
       :language: bash
 
 
-Known Issues
-------------
+Running Pre-Built Isaac Lab Container
+-------------------------------------
 
-WebRTC Streaming
-~~~~~~~~~~~~~~~~
+In Isaac Lab 2.0 release, we introduced a minimal pre-built container that contains a very minimal set
+of Isaac Sim and Omniverse dependencies, along with Isaac Lab 2.0 pre-built into the container.
+This container allows users to pull the container directly from NGC without requiring a local build of
+the docker image. The Isaac Lab source code will be available in this container under ``/workspace/IsaacLab``.
 
-When streaming the GUI from Isaac Sim, there are `several streaming clients`_ available. There is a `known issue`_ when
-attempting to use WebRTC streaming client on Google Chrome and Safari while running Isaac Sim inside a container.
-To avoid this problem, we suggest using the Native Streaming Client or using the
-Mozilla Firefox browser on which WebRTC works.
+This container is designed for running **headless** only and does not allow for X11 forwarding or running
+with the GUI. Please only use this container for headless training. For other use cases, we recommend
+following the above steps to build your own Isaac Lab docker image.
 
-Streaming is the only supported method for visualizing the Isaac GUI from within the container. The Omniverse Streaming Client
-is freely available from the Omniverse app, and is easy to use. The other streaming methods similarly require only a web browser.
-If users want to use X11 forwarding in order to have the apps behave as local GUI windows, they can uncomment the relevant portions
-in docker-compose.yaml.
+.. note::
+
+  Currently, we only provide docker images with every major release of Isaac Lab.
+  For example, we provide the docker image for release 2.0.0 and 2.1.0, but not 2.0.2.
+  In the future, we will provide docker images for every minor release of Isaac Lab.
+
+To pull the minimal Isaac Lab container, run:
+
+.. code:: bash
+
+  docker pull nvcr.io/nvidia/isaac-lab:3.0.0-beta2
+
+.. attention::
+
+  If the pre-built image you use runs as a **non-root** user (uid/gid 1000) -- as Isaac Lab
+  3.0.0-beta2 and later do -- the bind-mounted host directories below must be writable by that
+  user. Docker creates any missing bind-mount source directory as ``root``, which the non-root
+  runtime user cannot write to, leading to startup errors such as
+  ``PermissionError: [Errno 13] Permission denied: '/root/.local/share/ov/data/exts'``.
+  Pre-create the host directories and make them writable by uid/gid 1000 before running the
+  container:
+
+  .. code:: bash
+
+     mkdir -p ~/docker/isaac-sim/{cache/kit,cache/ov,cache/pip,cache/glcache,cache/computecache,logs,data,documents}
+     sudo chown -R 1000:1000 ~/docker/isaac-sim
+
+To run the Isaac Lab container with an interactive bash session, run:
+
+.. code:: bash
+
+  docker run --name isaac-lab --entrypoint bash -it --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
+     -e "PRIVACY_CONSENT=Y" \
+     -v ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
+     -v ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw \
+     -v ~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw \
+     -v ~/docker/isaac-sim/cache/glcache:/root/.cache/nvidia/GLCache:rw \
+     -v ~/docker/isaac-sim/cache/computecache:/root/.nv/ComputeCache:rw \
+     -v ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw \
+     -v ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw \
+     -v ~/docker/isaac-sim/documents:/root/Documents:rw \
+     nvcr.io/nvidia/isaac-lab:3.0.0-beta2
+
+To enable rendering through X11 forwarding, run:
+
+.. code:: bash
+
+  xhost +
+  docker run --name isaac-lab --entrypoint bash -it --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
+     -e "PRIVACY_CONSENT=Y" \
+     -e DISPLAY \
+     -v $HOME/.Xauthority:/root/.Xauthority \
+     -v ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
+     -v ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw \
+     -v ~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw \
+     -v ~/docker/isaac-sim/cache/glcache:/root/.cache/nvidia/GLCache:rw \
+     -v ~/docker/isaac-sim/cache/computecache:/root/.nv/ComputeCache:rw \
+     -v ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw \
+     -v ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw \
+     -v ~/docker/isaac-sim/documents:/root/Documents:rw \
+     nvcr.io/nvidia/isaac-lab:3.0.0-beta2
+
+To run an example within the container, run:
+
+.. code:: bash
+
+  ./isaaclab.sh -p scripts/tutorials/00_sim/log_time.py
 
 
-.. _`NVIDIA Omniverse EULA`: https://docs.omniverse.nvidia.com/platform/latest/common/NVIDIA_Omniverse_License_Agreement.html
-.. _`container installation`: https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_container.html
+.. _`NVIDIA Software License Agreement`: https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-software-license-agreement
+.. _`container installation`: https://docs.isaacsim.omniverse.nvidia.com/latest/installation/install_container.html
 .. _`Docker website`: https://docs.docker.com/desktop/install/linux-install/
 .. _`docker compose`: https://docs.docker.com/compose/install/linux/#install-using-the-repository
 .. _`NVIDIA Container Toolkit`: https://github.com/NVIDIA/nvidia-container-toolkit
@@ -306,7 +390,7 @@ in docker-compose.yaml.
 .. _`post-installation steps`: https://docs.docker.com/engine/install/linux-postinstall/
 .. _`Isaac Sim container`: https://catalog.ngc.nvidia.com/orgs/nvidia/containers/isaac-sim
 .. _`NGC API key`: https://docs.nvidia.com/ngc/gpu-cloud/ngc-user-guide/index.html#generating-api-key
-.. _`several streaming clients`: https://docs.omniverse.nvidia.com/isaacsim/latest/installation/manual_livestream_clients.html
+.. _`several streaming clients`: https://docs.isaacsim.omniverse.nvidia.com/latest/installation/manual_livestream_clients.html
 .. _`known issue`: https://forums.developer.nvidia.com/t/unable-to-use-webrtc-when-i-run-runheadless-webrtc-sh-in-remote-headless-container/222916
 .. _`profile`: https://docs.docker.com/compose/compose-file/15-profiles/
 .. _`apt package`: https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debians.html#install-ros-2-packages

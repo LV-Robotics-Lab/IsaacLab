@@ -9,13 +9,162 @@ Tricks and Troubleshooting
     assistance.
 
 
+Installation Troubleshooting
+----------------------------
+
+``ModuleNotFoundError: No module named 'pip'``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Your venv was created without pip. The install system auto-detects and uses
+``uv pip`` when pip is absent, so this error should no longer occur with the
+latest Isaac Lab.
+
+``ModuleNotFoundError: No module named 'isaacsim'``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You are running a script that requires Isaac Sim, but it is not installed.
+Either:
+
+- Install Isaac Sim: ``./isaaclab.sh -i isaacsim``, or
+- Use a Newton-based task with ``physics=newton_mjwarp --visualizer newton`` (Kit-less path)
+
+``ModuleNotFoundError: No module named 'isaaclab_physx'`` or ``'isaaclab_ov'``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These config packages are auto-installed by ``./isaaclab.sh -i``. If using a
+selective install, re-run with the default ``./isaaclab.sh -i`` to get all
+packages.
+
+``ModuleNotFoundError: No module named 'isaaclab_assets'``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Include ``assets`` in your install command, or use ``./isaaclab.sh -i`` to install
+everything.
+
+``ModuleNotFoundError: No module named 'rsl_rl'``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Include the RL framework: ``./isaaclab.sh -i rsl_rl``, or use
+``./isaaclab.sh -i`` to install all frameworks.
+
+Crash in ``libusd_tf`` / USD Symbol Collision with OVRTX
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you see a crash involving ``libusd_tf-*.so`` and conflicting USD versions
+(e.g. ``pxrInternal_v0_25_5`` vs ``pxrInternal_v0_25_11``):
+
+1. Ensure ``LD_PRELOAD`` is set to ovrtx's ``libcarb.so`` and install the OVRTX
+   runtime with ``./isaaclab.sh -i 'ov[ovrtx]'`` (see :ref:`installation-selective-install`)
+2. Ensure ``isaacsim`` / ``omniverse-kit`` is **not** installed in the same
+   environment — their bundled USD libraries conflict with ovrtx's
+
+Visualizer Not Appearing
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+If ``--visualizer newton`` shows no window, you may be missing ``imgui-bundle``:
+
+.. code-block:: bash
+
+   uv pip install imgui-bundle
+
+For ``viser``, check the terminal for a URL (e.g. ``http://localhost:8012``).
+
+``GLIBC Version Too Old``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Isaac Sim pip packages require GLIBC 2.35+. Check with ``ldd --version``.
+Ubuntu 22.04+ satisfies this. For older distributions, use the
+`binary installation <https://docs.isaacsim.omniverse.nvidia.com/latest/installation/install_workstation.html>`_
+method for Isaac Sim.
+
+Troubleshooting distributed training NCCL errors
+------------------------------------------------
+
+On some Linux multi-GPU systems, distributed training may fail with
+``CUDA error: an illegal memory access was encountered`` reported by ``ProcessGroupNCCL``.
+For documented NCCL workarounds, see :ref:`multi-gpu-nccl-troubleshooting`.
+
+
+Debugging physics simulation stability issues
+---------------------------------------------
+
+When importing new robots into Isaac Lab or setting up a new environment, simulation instability
+can often appear if the assets have not been tuned with reasonable simulation parameters.
+In reinforcement learning scenarios, this will often result in NaNs propagating into the learning pipeline
+due to invalid states in the simulation.
+
+If this happens, we recommend consulting the
+`Articulation and Robot Simulation Stability Guide <https://docs.omniverse.nvidia.com/kit/docs/omni_physics/latest/dev_guide/guides/articulation_stability_guide.html>`_
+which recommends various simulation parameters and best practices to achieve better stability in robot simulations.
+
+Additionally, `Omniverse PhysX Visual Debugger <https://docs.omniverse.nvidia.com/kit/docs/omni_physics/latest/extensions/ux/source/omni.physx.pvd/docs/dev_guide/physx_visual_debugger.html>`_
+allows for recording of data of PhysX simulations, which can often help simulation issues and aid the debugging process.
+
+To enable OmniPVD capture in Isaac Lab, add the relevant kit arguments to the command line prompt when launching an Isaac Lab process
+
+.. code:: bash
+
+    ./isaaclab.sh -p scripts/demos/bipeds.py --kit_args "--/persistent/physics/omniPvdOvdRecordingDirectory=/tmp/ --/physics/omniPvdOutputEnabled=true"
+
+
+Joints actuate in PhysX but not in a Newton-based backend
+---------------------------------------------------------
+
+If your robot's joints move under PhysX but appear unactuated under one of the
+Newton-based backends (MuJoCo Warp, XPBD, Featherstone, Semi-implicit) — even
+though you have authored an :class:`~isaaclab.actuators.ImplicitActuatorCfg`
+with non-zero ``stiffness`` and ``damping`` — the cause is almost always that
+the USD asset ships with zero authored drive gains.
+
+Newton's USD importer only materialises a solver actuator when the authored
+``PhysicsDriveAPI`` reports a non-zero stiffness *or* damping. Many existing
+assets leave both at ``0`` on purpose, expecting the actuator gains to come from
+an :class:`~isaaclab.actuators.ImplicitActuatorCfg` at runtime. PhysX creates
+the actuator regardless and lets the runtime gain writes take effect, so the
+asset works there; Newton drops the actuator before the runtime writes can
+attach to it.
+
+The fix is to set
+:attr:`~isaaclab.sim.schemas.JointDrivePropertiesCfg.ensure_drives_exist` to
+``True`` on the spawn config. This writes a minimal placeholder stiffness
+(``1e-3``) to any drive whose authored stiffness *and* damping are both zero,
+which is enough for Newton's importer to create the actuator. The actual gains
+are then overwritten by the actuator model at runtime, so the placeholder has
+no effect on the simulated dynamics.
+
+.. code:: python
+
+   from isaaclab.actuators import ImplicitActuatorCfg
+   from isaaclab.assets import ArticulationCfg
+   import isaaclab.sim as sim_utils
+
+   ROBOT_CFG = ArticulationCfg(
+       spawn=sim_utils.UsdFileCfg(
+           usd_path="...",
+           joint_drive_props=sim_utils.JointDrivePropertiesCfg(ensure_drives_exist=True),
+       ),
+       actuators={
+           "legs": ImplicitActuatorCfg(
+               joint_names_expr=[".*HAA", ".*HFE", ".*KFE"],
+               effort_limit_sim=120.0,
+               velocity_limit_sim=7.5,
+               stiffness={".*": 40.0},
+               damping={".*": 5.0},
+           ),
+       },
+   )
+
+See :ref:`import-new-asset-ensure-drives-exist` for the underlying USD-import
+details and the equivalent fix when authoring a new asset.
+
+
 Checking the internal logs from the simulator
 ---------------------------------------------
 
 When running the simulator from a standalone script, it logs warnings and errors to the terminal. At the same time,
 it also logs internal messages to a file. These are useful for debugging and understanding the internal state of the
 simulator. Depending on your system, the log file can be found in the locations listed
-`here <https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_faq.html#common-path-locations>`_.
+`here <https://docs.isaacsim.omniverse.nvidia.com/latest/installation/install_faq.html#common-path-locations>`_.
 
 To obtain the exact location of the log file, you need to check the first few lines of the terminal output when
 you run the standalone script. The log file location is printed at the start of the terminal output. For example:
@@ -35,32 +184,26 @@ In the above example, the log file is located at ``.../logs/Kit/Isaac-Sim/2023.1
 You can open this file to check the internal logs from the simulator. Also when reporting issues, please include
 this log file to help us debug the issue.
 
+Changing logging channel levels for the simulator
+-------------------------------------------------
 
-Using CPU Scaling Governor for performance
-------------------------------------------
+By default, the simulator logs messages at the ``WARN`` level and above on the terminal. You can change the logging
+channel levels to get more detailed logs. The logging channel levels can be set through Omniverse's logging system.
 
-By default on many systems, the CPU frequency governor is set to
-“powersave” mode, which sets the CPU to lowest static frequency. To
-increase the maximum performance, we recommend setting the CPU frequency
-governor to “performance” mode. For more details, please check the the
-link
-`here <https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/power_management_guide/cpufreq_governors>`__.
+To obtain more detailed logs, you can run your application with the following flags:
 
-.. warning::
-    We advice not to set the governor to “performance” mode on a system with poor
-    cooling (such as laptops), since it may cause the system to overheat.
+* ``--info``: This flag logs messages at the ``INFO`` level and above.
+* ``--verbose``: This flag logs messages at the ``VERBOSE`` level and above.
 
--  To view existing ``scaling_governor`` value per CPU:
+For instance, to run a standalone script with verbose logging, you can use the following command:
 
-   .. code:: bash
+.. code-block:: bash
 
-      cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+    # Run the standalone script with info logging
+    ./isaaclab.sh -p scripts/tutorials/00_sim/create_empty.py --info
 
--  To change the governor to “performance” mode for each CPU:
-
-   .. code:: bash
-
-      echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+For more fine-grained control, you can modify the logging channels through the ``logger`` module.
+For more information, please refer to its `documentation <https://docs.python.org/3/library/logging.html>`__.
 
 
 Observing long load times at the start of the simulation
@@ -94,20 +237,20 @@ exceeds the size of the buffers, the simulation will fail with an error such as 
     parameter to 3072, otherwise the simulation will miss interactions
 
 In this case, you need to increase the size of the buffers passed to the
-:class:`~omni.isaac.lab.sim.SimulationContext` class. The size of the buffers can be increased by setting
-the :attr:`~omni.isaac.lab.sim.PhysxCfg.gpu_found_lost_pairs_capacity` parameter in the
-:class:`~omni.isaac.lab.sim.PhysxCfg` class. For example, to increase the size of the buffers to
+:class:`~isaaclab.sim.SimulationContext` class. The size of the buffers can be increased by setting
+the :attr:`~isaaclab.sim.PhysxCfg.gpu_found_lost_pairs_capacity` parameter in the
+:class:`~isaaclab.sim.PhysxCfg` class. For example, to increase the size of the buffers to
 4096, you can use the following code:
 
 .. code:: python
 
-    import omni.isaac.lab.sim as sim_utils
+    import isaaclab.sim as sim_utils
 
     sim_cfg = sim_utils.SimulationConfig()
     sim_cfg.physx.gpu_found_lost_pairs_capacity = 4096
     sim = SimulationContext(sim_params=sim_cfg)
 
-Please see the documentation for :class:`~omni.isaac.lab.sim.SimulationCfg` for more details
+Please see the documentation for :class:`~isaaclab.sim.SimulationCfg` for more details
 on the parameters that can be used to configure the simulation.
 
 
@@ -196,11 +339,11 @@ simulation application. These typically look like the following:
     [INFO]: Completed setting up the environment...
 
     Traceback (most recent call last):
-    File "source/standalone/workflows/robomimic/collect_demonstrations.py", line 166, in <module>
+    File "scripts/imitation_learning/robomimic/collect_demonstrations.py", line 166, in <module>
         main()
-    File "source/standalone/workflows/robomimic/collect_demonstrations.py", line 126, in main
+    File "scripts/imitation_learning/robomimic/collect_demonstrations.py", line 126, in main
         actions = pre_process_actions(delta_pose, gripper_command)
-    File "source/standalone/workflows/robomimic/collect_demonstrations.py", line 57, in pre_process_actions
+    File "scripts/imitation_learning/robomimic/collect_demonstrations.py", line 57, in pre_process_actions
         return torch.concat([delta_pose, gripper_vel], dim=1)
     TypeError: expected Tensor as element 1 in argument 0, but got int
     Exception ignored in: <function _make_registry.<locals>._Registry.__del__ at 0x7f94ac097f80>
@@ -235,10 +378,10 @@ In the above case, the actual error is:
 .. code:: bash
 
     Traceback (most recent call last):
-    File "source/standalone/workflows/robomimic/tools/collect_demonstrations.py", line 166, in <module>
+    File "scripts/imitation_learning/robomimic/tools/collect_demonstrations.py", line 166, in <module>
         main()
-    File "source/standalone/workflows/robomimic/tools/collect_demonstrations.py", line 126, in main
+    File "scripts/imitation_learning/robomimic/tools/collect_demonstrations.py", line 126, in main
         actions = pre_process_actions(delta_pose, gripper_command)
-    File "source/standalone/workflows/robomimic/tools/collect_demonstrations.py", line 57, in pre_process_actions
+    File "scripts/imitation_learning/robomimic/tools/collect_demonstrations.py", line 57, in pre_process_actions
         return torch.concat([delta_pose, gripper_vel], dim=1)
     TypeError: expected Tensor as element 1 in argument 0, but got int
